@@ -104,6 +104,28 @@ kubeclt apply -f global-rate-limit/configmap.yaml
 ```sh
 kubeclt apply -f global-rate-limit/rate-limit-svc.yaml
 ```
+verify rate limit svc
+```sh
+kubectl port-forward svc/ratelimit 8080:8080 &
+curl localhost:8080/json -d '{"domain": "my-ratelimit", "descriptors": [{ "entries": [{ "key": "remote_address", "value": "10.0.0.0"}] }]}'
+```
+check cluster_name
+```sh
+istioctl pc cluster -n global-rate-limit deploy/nginx-deployment --fqdn ratelimit.global-rate-limit.svc.cluster.local  --port 8081 -o json | grep serviceName
+
+# output be like
+"serviceName": "outbound|8081||ratelimit.global-rate-limit.svc.cluster.local"
+```
+add it to global-rate-limit/envoy-filter-global.yaml
+```sh
+...
+  rate_limit_service:
+    grpc_service:
+      envoy_grpc:
+        cluster_name: outbound|8081||ratelimit.global-rate-limit.svc.cluster.local
+        authority: ratelimit.global-rate-limit.svc.cluster.local
+...
+```
 ```sh
 kubeclt apply -f global-rate-limit/envoy-filter-global.yaml
 ```
@@ -137,3 +159,4 @@ when hit limit
 < server: istio-envoy
 < content-length: 0
 ```
+Ref: https://learncloudnative.com/blog/2023-07-23-global-rate-limiter
