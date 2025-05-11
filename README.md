@@ -89,7 +89,7 @@ INGRESS_GATEWAY_IP=$(kubectl get svc istio-ingressgateway -n istio-system -o jso
 echo $INGRESS_GATEWAY_IP
 
 # In my case I poc by using minikube so I make a turnel to get external IP of svc
-minikube turnel
+minikube tunnel
 ###
 ✅  Tunnel successfully started
 ...
