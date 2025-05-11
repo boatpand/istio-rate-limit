@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ratelimit-config
+  namespace: global-rate-limit
+data:
+  config.yaml: |
+    domain: my-ratelimit
+    descriptors:
+      - key: remote_address
+        rate_limit:
+          unit: minute
+          requests_per_unit: 5

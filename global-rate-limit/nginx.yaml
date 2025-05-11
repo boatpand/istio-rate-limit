@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: global-rate-limit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: docker.io/boatpand/mynginx:v1.0.0
+        ports:
+        - containerPort: 80
+      imagePullSecrets:
+        - name: container-registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+  namespace: global-rate-limit
+spec:
+  ports:
+    - port: 80
+  selector:
+    app: nginx

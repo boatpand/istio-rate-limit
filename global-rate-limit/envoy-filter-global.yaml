@@ -1,0 +1,87 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: nginx-ratelimit
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: 'envoy.filters.network.http_connection_manager'
+              subFilter:
+                name: 'envoy.filters.http.router'
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          # Configure the ratelimit filter
+          name: envoy.filters.http.ratelimit
+          typed_config:
+            '@type': type.googleapis.com/udpa.type.v1.TypedStruct
+            # Updated type_url
+            type_url: type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit
+            value:
+              # Note that this has to match the domain in the ratelimit ConfigMap
+              domain: my-ratelimit
+              enable_x_ratelimit_headers: DRAFT_VERSION_03
+              timeout: 5s
+              failure_mode_deny: true
+              rate_limit_service:
+                grpc_service:
+                  envoy_grpc:
+                    cluster_name: outbound|8081||ratelimit.global-rate-limit.svc.cluster.local
+                    authority: ratelimit.global-rate-limit.svc.cluster.local
+                transport_api_version: V3
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: nginx-rule-actions
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: VIRTUAL_HOST
+      match:
+        context: GATEWAY
+        routeConfiguration:
+          vhost:
+            name: ""
+            route:
+              action: ANY
+      patch:
+        operation: MERGE
+        value:
+          rate_limits:
+            - actions:
+                - remote_address: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: xff
+  namespace: istio-system
+spec:
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: ANY
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+          use_remote_address: true
+          xff_num_trusted_hops: 1
